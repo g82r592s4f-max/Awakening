@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0F1A">
+<title>Пробуждение</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0A0F1A;
+    font-family:-apple-system,"SF Pro Text","Helvetica Neue",sans-serif;touch-action:none}
+  canvas{display:block;position:absolute;inset:0}
+  #hud{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top) + 10px) 14px 0;
+    pointer-events:none;z-index:10}
+  .bar{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .bar .lbl{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#E8E4D9;
+    opacity:.5;width:52px;flex:none}
+  .bar .track{flex:1;height:3px;background:rgba(232,228,217,.14);border-radius:2px;overflow:hidden}
+  .bar .fill{height:100%;width:100%;border-radius:2px;transition:width .3s linear}
+  #f-warm .fill{background:#D68C45}
+  #f-hung .fill{background:#4A5D3A}
+  #f-thir .fill{background:#7FA8C9}
+  #f-ener .fill{background:#5D3A6B}
+  #f-heal .fill{background:#8B3A3A}
+  #clock{position:absolute;top:calc(env(safe-area-inset-top) + 10px);right:14px;
+    font-size:11px;letter-spacing:.1em;color:#E8E4D9;opacity:.6;font-variant-numeric:tabular-nums}
+  #weather{position:absolute;top:calc(env(safe-area-inset-top) + 28px);right:14px;
+    font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:#E8E4D9;opacity:.35}
+  #msgs{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 210px);
+    padding:0 20px;pointer-events:none;z-index:20;display:flex;flex-direction:column;
+    align-items:center;gap:6px}
+  .msg{font-size:13px;line-height:1.35;text-align:center;color:#E8E4D9;
+    text-shadow:0 1px 8px rgba(0,0,0,.9);opacity:0;transform:translateY(6px);
+    transition:opacity .5s ease,transform .5s ease;max-width:320px}
+  .msg.on{opacity:1;transform:translateY(0)}
+  #btns{position:absolute;right:calc(env(safe-area-inset-right) + 16px);
+    bottom:calc(env(safe-area-inset-bottom) + 26px);
+    display:grid;grid-template-columns:auto auto;gap:9px;z-index:15}
+  .btn{width:66px;height:66px;border-radius:50%;border:1px solid rgba(232,228,217,.22);
+    background:rgba(10,15,26,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    color:#E8E4D9;font-size:10px;line-height:1.15;letter-spacing:.06em;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:4px;font-weight:500;transition:transform .12s,background .12s}
+  .btn:active{transform:scale(.92);background:rgba(214,140,69,.28);
+    border-color:rgba(214,140,69,.6)}
+  .btn.off{opacity:.32}
+  #stick{position:absolute;width:104px;height:104px;border-radius:50%;
+    border:1px solid rgba(232,228,217,.2);background:rgba(10,15,26,.28);
+    pointer-events:none;opacity:0;transition:opacity .18s;z-index:14;
+    left:0;top:0;margin-left:-52px;margin-top:-52px}
+  #stick.on{opacity:1}
+  #knob{position:absolute;width:44px;height:44px;border-radius:50%;
+    background:rgba(232,228,217,.22);border:1px solid rgba(232,228,217,.4);
+    left:50%;top:50%;margin-left:-22px;margin-top:-22px}
+  .screen{position:absolute;inset:0;z-index:50;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:34px;
+    background:radial-gradient(circle at 50% 42%,#1B2A41 0%,#0A0F1A 72%);
+    transition:opacity .8s ease}
+  .screen.hide{opacity:0;pointer-events:none}
+  .title{font-size:32px;letter-spacing:.2em;color:#E8E4D9;text-transform:uppercase;
+    font-weight:300;margin-bottom:10px;text-align:center}
+  .sub{font-size:11px;letter-spacing:.24em;color:#7FA8C9;opacity:.65;
+    text-transform:uppercase;margin-bottom:38px}
+  .body{font-size:13px;line-height:1.7;color:#E8E4D9;opacity:.55;text-align:center;
+    max-width:290px;margin-bottom:38px}
+  .go{padding:15px 52px;border:1px solid rgba(214,140,69,.55);border-radius:2px;
+    background:transparent;color:#D68C45;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase;transition:background .25s}
+  .go:active{background:rgba(214,140,69,.16)}
+  #deathScreen .title{color:#8B3A3A}
+  #deathScreen .sub{color:#8B3A3A}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="bar" id="f-warm"><span class="lbl">Тепло</span><span class="track"><span class="fill"></span></span></div>
+  <div class="bar" id="f-hung"><span class="lbl">Голод</span><span class="track"><span class="fill"></span></span></div>
+  <div class="bar" id="f-thir"><span class="lbl">Жажда</span><span class="track"><span class="fill"></span></span></div>
+  <div class="bar" id="f-ener"><span class="lbl">Силы</span><span class="track"><span class="fill"></span></span></div>
+  <div class="bar" id="f-heal"><span class="lbl">Жизнь</span><span class="track"><span class="fill"></span></span></div>
+  <div id="clock">06:00</div>
+  <div id="weather">ясно</div>
+</div>
+<div id="msgs"></div>
+<div id="stick"><div id="knob"></div></div>
+<div id="btns">
+  <button class="btn" id="bEat">Есть</button>
+  <button class="btn" id="bFire">Костёр</button>
+  <button class="btn" id="bRest">Сон</button>
+  <button class="btn" id="bAct">Действие</button>
+</div>
+<div class="screen" id="startScreen">
+  <div class="title">Пробуждение</div>
+  <div class="sub">Прототип · Этап I</div>
+  <div class="body">
+    Вы открываете глаза на холодном берегу. Вы не помните, кто вы.
+    Вокруг — обломки. Впереди — лес. Ночь придёт раньше, чем вы думаете.
+  </div>
+  <button class="go" id="startBtn">Начать</button>
+</div>
+<div class="screen hide" id="deathScreen">
+  <div class="title">Тишина</div>
+  <div class="sub" id="deathReason">Вы не выжили</div>
+  <div class="body" id="deathStats"></div>
+  <button class="go" id="retryBtn">Заново</button>
+</div>
+<script>
+"use strict";
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const dist=(x1,y1,x2,y2)=>Math.hypot(x1-x2,y1-y2);
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d',{alpha:false});
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth; H=window.innerHeight;
+  canvas.width=W*DPR; canvas.height=H*DPR;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',()=>setTimeout(resize,220));
+const WORLD={w:4000,h:4200};
+const BEACH_Y=3250, OCEAN_Y=3960;
+const S={
+  running:false, dead:false, t:360,
+  player:{x:2000,y:3560,vx:0,vy:0,face:-Math.PI/2,
+          warmth:62,hunger:74,thirst:70,energy:82,health:100},
+  inv:{stick:0,stone:0,berry:0},
+  fire:null, wolves:[], nodes:[], decals:[],
+  weather:'clear', weatherTimer:40, particles:[],
+  introStep:0, introTimer:0, distance:0
+};
+const TIME_SPEED=3;
+function genWorld(){
+  S.nodes.length=0; S.decals.length=0;
+  for(let i=0;i<560;i++){
+    const x=rand(180,WORLD.w-180), y=rand(180,WORLD.h-400);
+    let type;
+    if(y>BEACH_Y){
+      const r=Math.random();
+      type = r<0.38?'stone' : r<0.72?'stick' : 'water';
+    }else{
+      const r=Math.random();
+      type = r<0.40?'stick' : r<0.58?'stone' : r<0.90?'berry' : 'water';
+    }
+    S.nodes.push({x,y,type,alive:true,uses:0,ph:Math.random()*6.283,sc:rand(.85,1.2)});
+  }
+  for(let i=0;i<160;i++){
+    S.decals.push({x:rand(0,WORLD.w),y:rand(0,WORLD.h),
+      r:rand(60,220),a:rand(.03,.10)});
+  }
+}
+function sunFactor(t){
+  const h=(t/60)%24;
+  if(h<4.5) return 0;
+  if(h<7)   return (h-4.5)/2.5;
+  if(h<19)  return 1;
+  if(h<21.5)return 1-(h-19)/2.5;
+  return 0;
+}
+const msgsEl=document.getElementById('msgs');
+function msg(text,color){
+  const d=document.createElement('div');
+  d.className='msg'; d.textContent=text;
+  if(color) d.style.color=color;
+  msgsEl.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  setTimeout(()=>{d.classList.remove('on');setTimeout(()=>d.remove(),600);},3600);
+  while(msgsEl.children.length>4) msgsEl.firstChild.remove();
+}
+const stickEl=document.getElementById('stick');
+const knobEl=document.getElementById('knob');
+const input={dx:0,dy:0,active:false,id:null,ox:0,oy:0};
+function stickStart(x,y,id){
+  input.active=true; input.id=id;
+  input.ox=x; input.oy=y;
+  stickEl.style.left=x+'px'; stickEl.style.top=y+'px';
+  stickEl.classList.add('on');
+  knobEl.style.transform='translate(0,0)';
+}
+function stickMove(x,y){
+  if(!input.active) return;
+  const dx=x-input.ox, dy=y-input.oy;
+  const d=Math.hypot(dx,dy), max=48;
+  const k=d>max?max/d:1;
+  const nx=dx*k, ny=dy*k;
+  knobEl.style.transform=`translate(px,px)`;
+  input.dx=clamp(dx/48,-1,1);
+  input.dy=clamp(dy/48,-1,1);
+  const m=Math.hypot(input.dx,input.dy);
+  if(m>1){input.dx/=m;input.dy/=m;}
+}
+function stickEnd(){
+  input.active=false; input.id=null;
+  input.dx=0; input.dy=0;
+  stickEl.classList.remove('on');
+}
+canvas.addEventListener('touchstart',e=>{
+  if(!S.running) return;
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.clientX < W*0.52 && !input.active){
+      stickStart(t.clientX,t.clientY,t.identifier);
+    }
+  }
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(!S.running) return;
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    if(t.identifier===input.id) stickMove(t.clientX,t.clientY);
+  }
+},{passive:false});
+canvas.addEventListener('touchend',e=>{
+  for(const t of e.changedTouches){
+    if(t.identifier===input.id) stickEnd();
+  }
+},{passive:false});
+canvas.addEventListener('touchcancel',stickEnd);
+document.addEventListener('gesturestart',e=>e.preventDefault());
+document.addEventListener('dblclick',e=>e.preventDefault());
+let mouseDown=false;
+canvas.addEventListener('mousedown',e=>{
+  if(!S.running) return;
+  mouseDown=true; stickStart(e.clientX,e.clientY,'m');
+});
+canvas.addEventListener('mousemove',e=>{ if(mouseDown) stickMove(e.clientX,e.clientY); });
+window.addEventListener('mouseup',()=>{ if(mouseDown){mouseDown=false;stickEnd();} });
+const INV_NAMES={stick:'палка',stone:'камень',berry:'ягоды'};
+function findNearest(maxD){
+  const p=S.player; let best=null,bd=maxD;
+  for(const n of S.nodes){
+    if(!n.alive) continue;
+    const d=dist(p.x,p.y,n.x,n.y);
+    if(d<bd){bd=d;best=n;}
+  }
+  return best;
+}
+function doAction(){
+  if(!S.running||S.dead) return;
+  const n=findNearest(72);
+  if(!n){ msg('Рядом ничего нет.'); return; }
+  if(n.type==='water'){
+    n.uses++;
+    S.player.thirst=clamp(S.player.thirst+24,0,100);
+    S.player.warmth=clamp(S.player.warmth-4,0,100);
+    msg('Вы пьёте ледяную воду.  +24 жажда,  −4 тепло','#7FA8C9');
+    if(n.uses>=4) n.alive=false;
+    return;
+  }
+  n.alive=false;
+  S.inv[n.type]++;
+  msg('Подобрано: '+INV_NAMES[n.type],'#D68C45');
+}
+function doEat(){
+  if(!S.running||S.dead) return;
+  if(S.inv.berry<=0){ msg('Ягод нет.'); return; }
+  S.inv.berry--;
+  S.player.hunger=clamp(S.player.hunger+19,0,100);
+  S.player.thirst=clamp(S.player.thirst+4,0,100);
+  msg('Горсть ягод.  +19 голод','#4A5D3A');
+}
+function doFire(){
+  if(!S.running||S.dead) return;
+  const p=S.player;
+  if(S.fire && dist(p.x,p.y,S.fire.x,S.fire.y)<130){
+    if(S.inv.stick<=0){ msg('Нет палок для костра.'); return; }
+    S.inv.stick--;
+    S.fire.fuel+=95;
+    msg('Вы подбросили палку.  Огонь живёт.','#D68C45');
+    return;
+  }
+  if(S.inv.stick<5||S.inv.stone<3){
+    msg('Нужно 5 палок и 3 камня.','#8B3A3A');
+    return;
+  }
+  S.inv.stick-=5; S.inv.stone-=3;
+  S.fire={x:p.x+18,y:p.y+10,fuel:200};
+  msg('Огонь разожжён. Тепло. Свет. Надежда.','#D68C45');
+}
+function doRest(){
+  if(!S.running||S.dead) return;
+  const p=S.player;
+  const near=S.fire && dist(p.x,p.y,S.fire.x,S.fire.y)<130;
+  const mins=near?360:210;
+  S.t+=mins;
+  p.energy=clamp(p.energy+(near?72:44),0,100);
+  p.hunger=clamp(p.hunger-mins*0.021,0,100);
+  p.thirst=clamp(p.thirst-mins*0.028,0,100);
+  if(near){
+    p.warmth=clamp(p.warmth+22,0,100);
+    S.fire.fuel-=mins*0.32;
+    if(S.fire.fuel<=0){ S.fire=null; msg('Огонь погас, пока вы спали.','#8B3A3A'); }
+  }else{
+    p.warmth=clamp(p.warmth-mins*0.075,0,100);
+  }
+  msg(`Вы спали  ч.`,'#5D3A6B');
+  advanceWeather(mins);
+  checkDeath();
+}
+function checkDeath(){
+  if(S.dead) return;
+  if(S.player.health<=0){ die(reason()); }
+}
+function reason(){
+  const p=S.player;
+  if(p.warmth<=0)  return 'Вы замёрзли';
+  if(p.thirst<=0)  return 'Вы умерли от жажды';
+  if(p.hunger<=0)  return 'Вы умерли от голода';
+  return 'Раны оказались смертельными';
+}
+function die(text){
+  S.dead=true; S.running=false;
+  document.getElementById('deathReason').textContent=text;
+  const h=Math.floor(S.t/60), days=Math.floor(h/24);
+  document.getElementById('deathStats').textContent=
+    `Прожито:  д.  ч. · Пройдено:  м`;
+  document.getElementById('deathScreen').classList.remove('hide');
+}
+document.getElementById('bAct').addEventListener('click',doAction);
+document.getElementById('bEat').addEventListener('click',doEat);
+document.getElementById('bFire').addEventListener('click',doFire);
+document.getElementById('bRest').addEventListener('click',doRest);
+function advanceWeather(minutes){
+  S.weatherTimer-=minutes/60;
+  if(S.weatherTimer>0) return;
+  const roll=Math.random();
+  const night=sunFactor(S.t)<0.3;
+  if(roll<0.44)      S.weather='clear';
+  else if(roll<0.66) S.weather='fog';
+  else if(roll<0.86) S.weather='snow';
+  else               S.weather='storm';
+  if(night&&S.weather==='clear'&&Math.random()<0.3) S.weather='aurora';
+  S.weatherTimer=rand(45,150);
+}
+const W_NAME={clear:'ясно',fog:'туман',snow:'снег',storm:'метель',aurora:'аврора'};
+function updateWolves(dt){
+  const sun=sunFactor(S.t);
+  const night=sun<0.28;
+  const p=S.player;
+  if(night && S.wolves.length<3 && Math.random()<dt*0.10){
+    const a=rand(0,6.283), d=rand(620,780);
+    let wx=p.x+Math.cos(a)*d, wy=p.y+Math.sin(a)*d;
+    wx=clamp(wx,60,WORLD.w-60);
+    wy=clamp(wy,60,OCEAN_Y-40);
+    S.wolves.push({x:wx,y:wy,ph:Math.random()*6.283});
+    if(S.wolves.length===1) msg('Вдалеке — вой.','#8B3A3A');
+  }
+  if(!night && S.wolves.length && Math.random()<dt*0.35){
+    S.wolves.pop();
+  }
+  for(let i=S.wolves.length-1;i>=0;i--){
+    const w=S.wolves[i];
+    const fireD=S.fire?dist(w.x,w.y,S.fire.x,S.fire.y):1e9;
+    if(fireD<190){
+      const ax=w.x-S.fire.x, ay=w.y-S.fire.y, l=Math.hypot(ax,ay)||1;
+      w.x+=ax/l*105*dt; w.y+=ay/l*105*dt;
+    }else{
+      const d=dist(w.x,w.y,p.x,p.y);
+      if(d<640){
+        const ax=p.x-w.x, ay=p.y-w.y, l=d||1;
+        w.x+=ax/l*78*dt; w.y+=ay/l*78*dt;
+        if(d<36){
+          p.health-=13*dt;
+          p.warmth-=4.5*dt;
+          if(Math.random()<dt*0.6) msg('Волк рвёт вас. Бегите к огню!','#8B3A3A');
+          checkDeath();
+        }
+      }
+    }
+    if(dist(w.x,w.y,p.x,p.y)>1400) S.wolves.splice(i,1);
+  }
+}
+function update(dt){
+  if(!S.running||S.dead) return;
+  const p=S.player;
+  S.t+=dt*TIME_SPEED;
+  advanceWeather(dt*TIME_SPEED);
+  const spd=128;
+  let mx=input.dx, my=input.dy;
+  const m=Math.hypot(mx,my);
+  if(m>1){mx/=m;my/=m;}
+  p.x=clamp(p.x+mx*spd*dt,40,WORLD.w-40);
+  p.y=clamp(p.y+my*spd*dt,40,OCEAN_Y-30);
+  if(m>0.12){ p.face=Math.atan2(my,mx); S.distance+=m*spd*dt; }
+  const nearFire=S.fire && dist(p.x,p.y,S.fire.x,S.fire.y)<130;
+  const sun=sunFactor(S.t);
+  let wRate;
+  if(nearFire) wRate=+1.5;
+  else wRate=-(0.12+(1-sun)*0.42);
+  if(S.weather==='storm'&&!nearFire) wRate-=0.16;
+  if(S.weather==='snow' &&!nearFire) wRate-=0.06;
+  p.warmth=clamp(p.warmth+wRate*dt,0,100);
+  p.hunger=clamp(p.hunger-0.125*dt,0,100);
+  p.thirst=clamp(p.thirst-0.165*dt,0,100);
+  p.energy=clamp(p.energy-(m>0.12?0.15:0.055)*dt,0,100);
+  let dmg=0;
+  if(p.warmth<=0) dmg+=0.6;
+  if(p.hunger<=0) dmg+=0.30;
+  if(p.thirst<=0) dmg+=0.36;
+  if(p.energy<=0) dmg+=0.12;
+  if(dmg>0){ p.health=clamp(p.health-dmg*dt,0,100); checkDeath(); }
+  else if(p.warmth>32&&p.hunger>25&&p.thirst>25){
+    p.health=clamp(p.health+0.22*dt,0,100);
+  }
+  if(S.fire){
+    S.fire.fuel-=dt*0.34;
+    if(S.fire.fuel<=0){ S.fire=null; msg('Огонь погас.','#8B3A3A'); }
+  }
+  updateWolves(dt);
+  if(S.introStep<6){
+    S.introTimer-=dt;
+    if(S.introTimer<=0){
+      const lines=[
+        'Холод. Песок. Вкус соли.',
+        'Вы не помните, как здесь оказались.',
+        'Впереди — лес. Там — палки, камни, ягоды.',
+        'Соберите 5 палок и 3 камня. Разожгите огонь.',
+        'Ночь придёт раньше, чем вы думаете.',
+        'Волки не подходят к огню.'
+      ];
+      msg(lines[S.introStep],S.introStep>2?'#D68C45':'#E8E4D9');
+      S.introStep++;
+      S.introTimer=S.introStep===1?2.6:7;
+    }
+  }
+}
+function render(){
+  const p=S.player;
+  const sc=clamp(W/560,0.55,1.20);
+  const camX=p.x, camY=p.y;
+  const ox=W/2-camX*sc, oy=H/2-camY*sc;
+  const w2sx=x=>x*sc+ox;
+  const w2sy=y=>y*sc+oy;
+  const sun=sunFactor(S.t);
+  ctx.fillStyle='#0A0F1A';
+  ctx.fillRect(0,0,W,H);
+  const band=(y1,y2,c)=>{
+    const a=w2sy(y1), b=w2sy(y2);
+    if(b<0||a>H) return;
+    ctx.fillStyle=c;
+    ctx.fillRect(0,a,W,b-a);
+  };
+  band(-200,BEACH_Y,'#23301a');
+  band(BEACH_Y,OCEAN_Y,'#8a7b5c');
+  band(OCEAN_Y,WORLD.h+200,'#16283d');
+  ctx.save();
+  for(const d of S.decals){
+    const sx=w2sx(d.x), sy=w2sy(d.y), r=d.r*sc;
+    if(sx<-r||sx>W+r||sy<-r||sy>H+r) continue;
+    ctx.globalAlpha=d.a;
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,6.283); ctx.fill();
+  }
+  ctx.restore();
+  for(const n of S.nodes){
+    if(!n.alive) continue;
+    const sx=w2sx(n.x), sy=w2sy(n.y);
+    if(sx<-30||sx>W+30||sy<-30||sy>H+30) continue;
+    const s=n.sc*sc;
+    if(n.type==='stick'){
+      ctx.save();
+      ctx.translate(sx,sy); ctx.rotate(n.ph);
+      ctx.strokeStyle='#5a4630'; ctx.lineWidth=3*s; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-9*s,0); ctx.lineTo(9*s,0); ctx.stroke();
+      ctx.strokeStyle='#3d2f20'; ctx.lineWidth=1.4*s;
+      ctx.beginPath(); ctx.moveTo(-2*s,-3*s); ctx.lineTo(3*s,3*s); ctx.stroke();
+      ctx.restore();
+    }
+    else if(n.type==='stone'){
+      ctx.fillStyle='#6b6b6b';
+      ctx.beginPath(); ctx.arc(sx,sy,7*s,0,6.283); ctx.fill();
+      ctx.fillStyle='#8a8a8a';
+      ctx.beginPath(); ctx.arc(sx-2*s,sy-2*s,3.4*s,0,6.283); ctx.fill();
+    }
+    else if(n.type==='berry'){
+      ctx.fillStyle='#2c4022';
+      ctx.beginPath(); ctx.arc(sx,sy,11*s,0,6.283); ctx.fill();
+      ctx.fillStyle='#8B3A3A';
+      for(let i=0;i<5;i++){
+        const a=n.ph+i*1.256;
+        ctx.beginPath();
+        ctx.arc(sx+Math.cos(a)*6*s, sy+Math.sin(a)*6*s, 2.4*s,0,6.283);
+        ctx.fill();
+      }
+    }
+    else if(n.type==='water'){
+      const pulse=1+Math.sin(S.t*0.4+n.ph)*0.06;
+      ctx.fillStyle='rgba(127,168,201,0.30)';
+      ctx.beginPath(); ctx.ellipse(sx,sy,15*s*pulse,10*s*pulse,0,0,6.283); ctx.fill();
+      ctx.fillStyle='rgba(127,168,201,0.16)';
+      ctx.beginPath(); ctx.ellipse(sx,sy,22*s*pulse,14*s*pulse,0,0,6.283); ctx.fill();
+    }
+  }
+  if(S.fire){
+    const sx=w2sx(S.fire.x), sy=w2sy(S.fire.y);
+    const flick=0.86+Math.sin(S.t*7)*0.08+Math.random()*0.06;
+    const R=175*sc*flick;
+    const g=ctx.createRadialGradient(sx,sy,0,sx,sy,R);
+    g.addColorStop(0,   'rgba(214,140,69,0.42)');
+    g.addColorStop(0.35,'rgba(214,140,69,0.16)');
+    g.addColorStop(1,   'rgba(214,140,69,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(sx,sy,R,0,6.283); ctx.fill();
+    ctx.fillStyle='#5a5a5a';
+    for(let i=0;i<6;i++){
+      const a=i*1.047+0.3;
+      ctx.beginPath();
+      ctx.arc(sx+Math.cos(a)*11*sc, sy+Math.sin(a)*11*sc, 3.4*sc,0,6.283);
+      ctx.fill();
+    }
+    const h=(14+Math.sin(S.t*9)*3)*sc*flick;
+    const fg=ctx.createLinearGradient(sx,sy-h,sx,sy+h*0.4);
+    fg.addColorStop(0,'#ffd28a');
+    fg.addColorStop(0.5,'#D68C45');
+    fg.addColorStop(1,'#8B3A3A');
+    ctx.fillStyle=fg;
+    ctx.beginPath();
+    ctx.moveTo(sx-7*sc,sy+3*sc);
+    ctx.quadraticCurveTo(sx-4*sc,sy-h,sx,sy-h*1.25);
+    ctx.quadraticCurveTo(sx+4*sc,sy-h,sx+7*sc,sy+3*sc);
+    ctx.closePath(); ctx.fill();
+  }
+  for(const w of S.wolves){
+    const sx=w2sx(w.x), sy=w2sy(w.y);
+    if(sx<-40||sx>W+40||sy<-40||sy>H+40) continue;
+    const a=Math.atan2(p.y-w.y,p.x-w.x);
+    ctx.save(); ctx.translate(sx,sy); ctx.rotate(a);
+    ctx.fillStyle='#4a4a4a';
+    ctx.beginPath();
+    ctx.moveTo(11*sc,0); ctx.lineTo(-8*sc,-6*sc);
+    ctx.lineTo(-11*sc,0); ctx.lineTo(-8*sc,6*sc);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#D68C45';
+    ctx.beginPath(); ctx.arc(6*sc,-2.6*sc,1.7*sc,0,6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(6*sc, 2.6*sc,1.7*sc,0,6.283); ctx.fill();
+    ctx.restore();
+  }
+  {
+    const sx=w2sx(p.x), sy=w2sy(p.y);
+    const nearFire=S.fire && dist(p.x,p.y,S.fire.x,S.fire.y)<130;
+    ctx.fillStyle='rgba(0,0,0,0.34)';
+    ctx.beginPath(); ctx.ellipse(sx,sy+8*sc,10*sc,5*sc,0,0,6.283); ctx.fill();
+    ctx.fillStyle='#2f3b2a';
+    ctx.beginPath(); ctx.arc(sx,sy,10*sc,0,6.283); ctx.fill();
+    ctx.fillStyle='#3d4a35';
+    ctx.beginPath(); ctx.arc(sx,sy-1*sc,7*sc,0,6.283); ctx.fill();
+    ctx.fillStyle='#c9b48f';
+    ctx.beginPath(); ctx.arc(sx,sy-5.5*sc,4.6*sc,0,6.283); ctx.fill();
+    ctx.save();
+    ctx.translate(sx,sy); ctx.rotate(p.face);
+    ctx.fillStyle='#0A0F1A';
+    ctx.beginPath(); ctx.arc(3.6*sc,-1.6*sc,1.1*sc,0,6.283); ctx.fill();
+    ctx.beginPath(); ctx.arc(3.6*sc, 1.6*sc,1.1*sc,0,6.283); ctx.fill();
+    ctx.restore();
+    if(nearFire){
+      ctx.strokeStyle='rgba(214,140,69,0.30)';
+      ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(sx,sy,17*sc,0,6.283); ctx.stroke();
+    }
+  }
+  if(sun<1){
+    ctx.fillStyle=`rgba(12,22,48,)`;
+    ctx.fillRect(0,0,W,H);
+  }
+  if(S.weather==='aurora'){
+    const g=ctx.createLinearGradient(0,0,0,H*0.6);
+    g.addColorStop(0,'rgba(93,58,107,0.30)');
+    g.addColorStop(0.5,'rgba(61,139,139,0.16)');
+    g.addColorStop(1,'rgba(61,139,139,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H*0.6);
+  }
+  if(S.weather==='snow'||S.weather==='storm'){
+    const count=S.weather==='storm'?90:44;
+    if(S.particles.length<count){
+      while(S.particles.length<count){
+        S.particles.push({x:Math.random()*W,y:Math.random()*H,
+          v:rand(28,90),d:rand(-22,22),r:rand(0.7,2.1),a:rand(.25,.75)});
+      }
+    }
+    const wind=S.weather==='storm'?1.9:0.55;
+    ctx.fillStyle='#E8E4D9';
+    for(const s of S.particles){
+      s.y+=s.v*0.016*wind;
+      s.x+=s.d*0.016*wind;
+      if(s.y>H){s.y=-4;s.x=Math.random()*W;}
+      if(s.x<-6)s.x=W+6; if(s.x>W+6)s.x=-6;
+      ctx.globalAlpha=s.a;
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.283); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }else{
+    S.particles.length=0;
+  }
+  const visBase=(0.30+0.70*sun);
+  let visMul=1;
+  if(S.weather==='fog')   visMul=0.50;
+  if(S.weather==='storm') visMul=0.38;
+  if(S.weather==='snow')  visMul=0.78;
+  const R=Math.min(W,H)*1.35*visBase*visMul;
+  const vg=ctx.createRadialGradient(W/2,H/2,R*0.22,W/2,H/2,R);
+  vg.addColorStop(0,'rgba(10,15,26,0)');
+  vg.addColorStop(0.65,'rgba(10,15,26,0.42)');
+  vg.addColorStop(1,'rgba(10,15,26,0.96)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+  const eg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.35,W/2,H/2,Math.max(W,H)*0.78);
+  eg.addColorStop(0,'rgba(0,0,0,0)');
+  eg.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=eg; ctx.fillRect(0,0,W,H);
+  if(S.fire){
+    const d=dist(p.x,p.y,S.fire.x,S.fire.y);
+    if(d>240){
+      const a=Math.atan2(S.fire.y-p.y,S.fire.x-p.x);
+      const r=Math.min(W,H)*0.34;
+      const ix=W/2+Math.cos(a)*r, iy=H/2+Math.sin(a)*r;
+      ctx.save();
+      ctx.globalAlpha=0.45;
+      ctx.fillStyle='#D68C45';
+      ctx.translate(ix,iy); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(7,0); ctx.lineTo(-5,-4.5); ctx.lineTo(-5,4.5);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+const F={
+  warm:document.querySelector('#f-warm .fill'),
+  hung:document.querySelector('#f-hung .fill'),
+  thir:document.querySelector('#f-thir .fill'),
+  ener:document.querySelector('#f-ener .fill'),
+  heal:document.querySelector('#f-heal .fill')
+};
+const clockEl=document.getElementById('clock');
+const weatherEl=document.getElementById('weather');
+let hudAcc=0;
+function updateHUD(dt){
+  hudAcc+=dt;
+  if(hudAcc<0.12) return;
+  hudAcc=0;
+  const p=S.player;
+  F.warm.style.width=p.warmth+'%';
+  F.hung.style.width=p.hunger+'%';
+  F.thir.style.width=p.thirst+'%';
+  F.ener.style.width=p.energy+'%';
+  F.heal.style.width=p.health+'%';
+  const h=Math.floor((S.t/60)%24), m=Math.floor(S.t%60);
+  clockEl.textContent=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+  weatherEl.textContent=W_NAME[S.weather]||'';
+  const bf=document.getElementById('bFire');
+  const canAdd=S.fire && dist(p.x,p.y,S.fire.x,S.fire.y)<130 && S.inv.stick>0;
+  const canMake=!S.fire && S.inv.stick>=5 && S.inv.stone>=3;
+  bf.classList.toggle('off', !(canAdd||canMake));
+  const be=document.getElementById('bEat');
+  be.classList.toggle('off', S.inv.berry<=0);
+  const crit=p.warmth<18||p.hunger<12||p.thirst<12;
+  document.getElementById('hud').style.opacity=crit?(0.65+Math.sin(S.t*0.5)*0.3):1;
+}
+let last=performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.1) dt=0.1;
+  if(S.running){
+    update(dt);
+    updateHUD(dt);
+  }
+  render();
+}
+function startGame(){
+  S.running=true; S.dead=false;
+  S.t=360;
+  S.player={x:2000,y:3560,vx:0,vy:0,face:-Math.PI/2,
+            warmth:62,hunger:74,thirst:70,energy:82,health:100};
+  S.inv={stick:0,stone:0,berry:0};
+  S.fire=null; S.wolves.length=0; S.particles.length=0;
+  S.weather='clear'; S.weatherTimer=70;
+  S.introStep=0; S.introTimer=1.2; S.distance=0;
+  genWorld();
+  msgsEl.innerHTML='';
+  document.getElementById('startScreen').classList.add('hide');
+  document.getElementById('deathScreen').classList.add('hide');
+  last=performance.now();
+}
+document.getElementById('startBtn').addEventListener('click',startGame);
+document.getElementById('retryBtn').addEventListener('click',startGame);
+resize();
+genWorld();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
